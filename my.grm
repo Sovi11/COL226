@@ -1,0 +1,113 @@
+open DataTypes ; 
+fun lmaooo(x) = 1
+
+%%
+%name My
+
+%term POSNUMERAL of string | IDENTIFIER of string | RATNUM of string | LBRACE | RBRACE | LPAREN | RPAREN | EOF | 
+      IF | ELSE | THEN | ENDIF | WHILE | DO | ENDWH | 
+       SEMI | COMMA | INTE | BOOLE  | RATE |
+      LT | LEQ | NEQ | EQ | GT | GEQ | 
+      PLUS | MINUS | TIMES | DIV | MOD | PROCEDURE | CALL | INVERSE |
+      NOT | AND | OR | TRUE | FALSE | VAR | NEG | 
+      ASSIGN | READ | PRINT | 
+      RATMINUS | RATDIV | RATPLUS | RATTIMES | MAKERAT | RAT
+
+%nonterm start of AST | blk of BLK | procdecls of PROCDEF list|  procdef of PROCDEF |
+         decseq of DECSEQ | vardecls of VARDEC | intvardecls of INTDEC |
+        comseq of CMD list  | boolvardecls of BOOLDEC | ratvardecls of RATDEC |
+         commands of CMD list | 
+         dec of DEC |
+         command of CMD  |
+         varlist of string list |
+         expression of string * Exp 
+
+
+%eop EOF
+%noshift EOF
+%pos int 
+%verbose 
+
+%right ASSIGN
+%left OR
+%left AND
+%left EQ NEQ
+%left GT GEQ LT LEQ
+%left PLUS MINUS 
+%left TIMES MOD DIV 
+%left RATPLUS RATMINUS 
+%left RATTIMES RATDIV
+%right MAKERAT RAT INVERSE NOT NEG 
+%left LPAREN RPAREN 
+
+%%
+
+start: blk (  PROG( blk ))
+
+blk: decseq comseq (BLK(decseq , comseq ))
+
+decseq:  vardecls procdecls (DEXSEQ(vardecls,procdecls))
+
+procdecls : ([])| procdef SEMI procdecls (procdef :: procdecls ) 
+
+procdef : PROCEDURE IDENTIFIER blk (PROCDEX(IDENTIFIER,blk))
+
+vardecls : ratvardecls intvardecls boolvardecls (VARDEX(intvardecls,boolvardecls,ratvardecls))
+
+intvardecls : INTE varlist SEMI ( INTDEX(varlist , "bigint"))
+                | (INTDEX([],"bigint"))
+boolvardecls : BOOLE varlist SEMI (BOOLDEX(varlist , "bool"))
+                | (BOOLDEX([],"bool"))
+ratvardecls : RATE varlist SEMI ( RATDEX(varlist , "rational"))
+                | (RATDEX([],"rational"))
+comseq: LBRACE commands RBRACE ((commands))
+
+commands: (([]))
+        | command SEMI commands ((command::commands))
+
+varlist:  IDENTIFIER (([IDENTIFIER]))
+         | IDENTIFIER COMMA varlist  ((IDENTIFIER::varlist))
+
+command: READ LPAREN IDENTIFIER RPAREN ((Read(IDENTIFIER)))
+        | PRINT LPAREN expression RPAREN ((Print(expression)))
+        | IDENTIFIER ASSIGN expression ((  SET(IDENTIFIER ,#2 expression )))
+        | IF expression THEN comseq ELSE comseq ENDIF ( ( ITE( #2 expression , comseq1  , comseq2)))
+        | WHILE expression DO comseq ENDWH ( (  WH( #2 expression , comseq )))
+        | CALL IDENTIFIER ((Call(IDENTIFIER)))
+
+expression: expression LEQ expression ( (  ("bool" , LEQ(#2 expression1 , #2 expression2))))
+            | expression LT expression (( ("bool" , LT(#2 expression1 , #2 expression2))))
+            | expression EQ expression (( ("bool" , EQ(#2 expression1 , #2 expression2))))
+            | expression NEQ expression (( ("bool" , NEQ(#2 expression1 , #2 expression2)) ))
+            | expression GT expression (( ("bool" , GT(#2 expression1 , #2 expression2))))
+            | expression GEQ expression (( ("bool" , GEQ(#2 expression1 , #2 expression2))))
+            
+            | expression PLUS expression (( ("bigint" , PLUS(#2 expression1 , #2 expression2))))
+            | expression MINUS expression (( ("bigint" , MINUS(#2 expression1 , #2 expression2))))
+            | expression TIMES expression (( ("bigint" , TIMES(#2 expression1 , #2 expression2))))
+            | expression DIV expression (( ("bigint" , DIV(#2 expression1 , #2 expression2))))
+            | expression MOD expression (( ("bigint" , MOD(#2 expression1 , #2 expression2))))
+           
+            | expression RATPLUS expression (( ("rational" , RATPLUS(#2 expression1 , #2 expression2))))
+            | expression RATMINUS expression (( ("rational" , RATMINUS(#2 expression1 , #2 expression2))))
+            | expression RATTIMES expression (( ("rational" , RATTIMES(#2 expression1 , #2 expression2))))
+            | expression RATDIV expression (( ("rational" , RATDIV(#2 expression1 , #2 expression2))))
+
+            | expression AND expression (( ("bool" , AND(#2 expression1 , #2 expression2))  ))
+            | expression OR expression ((("bool" , OR(#2 expression1 , #2 expression2)) ))
+            | INVERSE expression (("rational", INVERSE(#2 expression)))
+            | LPAREN expression RPAREN (( expression))
+            
+            | MAKERAT LPAREN expression COMMA expression RPAREN (("rational", MAKERAT(#2 expression1, #2 expression2)))
+            | RAT expression (("rational", RAT(#2 expression)))
+            | NEG expression ((("bigint" , NEG( #2 expression)))) 
+            
+            | TRUE (("bool" , TT ))
+            | FALSE (("bool" , FF ))
+            
+            | POSNUMERAL (( "bigint" , Posnumeral(POSNUMERAL) ))
+            | RATNUM (("rational", Ratnum(RATNUM)))
+
+            | IDENTIFIER (( "identifier", Identifier(IDENTIFIER) ))
+
+            | NOT expression ( ("bool" , NOT(#2 expression)) )
